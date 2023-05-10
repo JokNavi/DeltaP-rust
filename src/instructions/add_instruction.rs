@@ -1,14 +1,13 @@
-use std::num::TryFromIntError;
 
-struct Add {
+struct AddInstruction {
     value: Vec<u8>,
     length: u8,
 }
 
-impl Add {
+impl AddInstruction {
 
-    pub fn new(value: &[u8], length: u8) -> Result<Self, TryFromIntError> {
-        Ok( Self {value: value.to_vec(), length,})
+    pub fn new(value: &[u8], length: u8) -> Self {
+        Self {value: value.to_vec(), length,}
     }
 
     pub fn value(&self) -> &[u8] {
@@ -22,13 +21,13 @@ impl Add {
 
 #[cfg(test)]
 mod add_tests{
-    use super::Add;
+    use super::AddInstruction;
 
 
     #[test]
     fn new() {
         let value = "Test".as_bytes();
-        let add = Add::new(value, 4).unwrap();
+        let add = AddInstruction::new(value, 4);
         assert_eq!(add.length(), &4);
         assert_eq!(add.value(), value);
     }

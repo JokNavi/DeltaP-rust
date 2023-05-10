@@ -1,4 +1,4 @@
-mod commands;
+mod instructions;
 
 
 fn main() {
