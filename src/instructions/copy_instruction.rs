@@ -1,4 +1,4 @@
-struct CopyInstruction {
+pub struct CopyInstruction {
     index: u32,
     length: u8,
 }

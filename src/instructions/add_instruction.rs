@@ -1,4 +1,4 @@
-struct AddInstruction {
+pub struct AddInstruction {
     value: Vec<u8>,
     length: u8,
 }

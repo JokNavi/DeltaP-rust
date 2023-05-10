@@ -1,4 +1,4 @@
-struct ReferenceInstruction {
+pub struct ReferenceInstruction {
     index: u16,
 }
 
