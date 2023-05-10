@@ -4,9 +4,8 @@ struct CopyInstruction {
 }
 
 impl CopyInstruction {
-
     pub fn new(index: u32, length: u8) -> Self {
-        Self {index, length}
+        Self { index, length }
     }
 
     pub fn index(&self) -> &u32 {
@@ -19,9 +18,8 @@ impl CopyInstruction {
 }
 
 #[cfg(test)]
-mod add_tests{
+mod add_tests {
     use super::CopyInstruction;
-
 
     #[test]
     fn new() {

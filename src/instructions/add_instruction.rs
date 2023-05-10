@@ -1,13 +1,14 @@
-
 struct AddInstruction {
     value: Vec<u8>,
     length: u8,
 }
 
 impl AddInstruction {
-
     pub fn new(value: &[u8], length: u8) -> Self {
-        Self {value: value.to_vec(), length,}
+        Self {
+            value: value.to_vec(),
+            length,
+        }
     }
 
     pub fn value(&self) -> &[u8] {
@@ -20,9 +21,8 @@ impl AddInstruction {
 }
 
 #[cfg(test)]
-mod add_tests{
+mod add_tests {
     use super::AddInstruction;
-
 
     #[test]
     fn new() {
