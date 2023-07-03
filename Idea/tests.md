@@ -7,8 +7,23 @@ struct Reference(u16); //Contains the index of a PatchCommand object with the sa
 
 ### `Save structure`:
 ```rust
-//Source = AAABBBAAACCC
-//target = AAAXXXCCCDDD
+// Patch_1 {
+// Source = AAABBBAAACCC
+// target = AAAXXXCCCDDD
+// }
 let commands = vec![Copy{3, 0000}, Add{3, "XXX"}, Reference{00}, Add{6, "CCCDDD"}]
 //Final result = "|30000+3XXX&00+CCCDDD"
 ```
+
+
+TEST 1:
+
+Patch_1 {
+Source = AAABBBAAACCC
+target = AAAXXXCCCDDD
+}
+
+Patch_1 {
+Source = AAAXXXCCCDDD
+target = XXXBBBCCCXXX
+}
