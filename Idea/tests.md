@@ -1,6 +1,6 @@
 ### `Commands`:
 ```rust
-struct Copy(u8), //Contains the chunk's length and the index at which it occured.
+struct Copy(u8), //Contains the chunk's length.
 struct Add(u8, Vec<u8>), //Contains the new bytes that need to be added and it's length.
 struct Remove(u8, Vec<u8>), //Contains the new bytes that need to be added and it's length.
 struct Reference(u16); //Contains the index of a PatchCommand object with the same content. Can hold untill index 65535.
