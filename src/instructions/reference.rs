@@ -2,6 +2,8 @@ use crate::instructions::instruction::ToBytes;
 
 pub type ReferenceSize = u16;
 
+
+#[derive(Debug, Default)]
 pub struct Reference {
     index: ReferenceSize,
 }

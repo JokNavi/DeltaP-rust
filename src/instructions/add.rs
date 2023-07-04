@@ -1,8 +1,11 @@
-use crate::instructions::instruction::{ByteChunk, ChunkLength, ToBytes};
+use super::instruction::{PushByte, ByteChunk, ChunkLength, ToBytes};
+use std::{iter::Peekable};
+use std::{slice::Iter};
+use itertools::ZipLongest;
 
 pub type AddSize = u8;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Add {
     byte_chunk: Vec<u8>,
     chunk_length: AddSize,
@@ -13,15 +16,6 @@ impl Add {
         Self {
             byte_chunk: Vec::with_capacity(chunk_length as usize),
             chunk_length: chunk_length,
-        }
-    }
-}
-
-impl Default for Add {
-    fn default() -> Self {
-        Self {
-            byte_chunk: Default::default(),
-            chunk_length: Default::default(),
         }
     }
 }
@@ -39,8 +33,15 @@ impl ByteChunk for Add {
         self.byte_chunk.as_slice()
     }
 
+}
+
+impl PushByte for Add {
     fn push(&mut self, byte: u8) {
         self.byte_chunk.push(byte);
+    }
+
+    fn push_slice(&mut self, slice: &[u8]) {
+        todo!()
     }
 }
 
