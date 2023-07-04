@@ -2,6 +2,7 @@ use crate::instructions::instruction::{ByteChunk, ChunkLength, ToBytes};
 
 pub type AddSize = u8;
 
+#[derive(Debug, PartialEq)]
 pub struct Add {
     byte_chunk: Vec<u8>,
     chunk_length: AddSize,

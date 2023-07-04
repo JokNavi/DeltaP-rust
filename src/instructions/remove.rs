@@ -2,6 +2,7 @@ use crate::instructions::instruction::{ByteChunk, ChunkLength, ToBytes};
 
 pub type RemoveSize = u8;
 
+#[derive(Debug, PartialEq)]
 pub struct Remove {
     byte_chunk: Vec<u8>,
     chunk_length: RemoveSize,
