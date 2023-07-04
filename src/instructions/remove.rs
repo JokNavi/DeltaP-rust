@@ -1,7 +1,6 @@
 use crate::instructions::instruction::{ByteChunk, ChunkLength, ToBytes};
 
 pub type RemoveSize = u8;
-const REMOVE_BYTE_SIGN: u8 = '-' as u8;
 
 pub struct Remove {
     byte_chunk: Vec<u8>,
@@ -45,8 +44,9 @@ impl ByteChunk for Remove {
 }
 
 impl ToBytes for Remove {
+    const BYTE_SIGN: u8 = '-' as u8;
     fn to_bytes(&self) -> Vec<u8> { 
-        let mut bytes = vec![REMOVE_BYTE_SIGN, self.chunk_length];
+        let mut bytes = vec![Self::BYTE_SIGN, self.chunk_length];
         bytes.extend_from_slice(self.bytes());
         bytes
     }

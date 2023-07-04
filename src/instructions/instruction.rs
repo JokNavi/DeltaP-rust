@@ -10,6 +10,7 @@ pub trait ByteChunk {
 }
 
 pub trait ToBytes {
+    const BYTE_SIGN: u8;
     fn to_bytes(&self) -> Vec<u8>;
 }
 

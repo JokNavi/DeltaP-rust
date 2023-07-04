@@ -6,4 +6,5 @@ fn main() {
     dbg!('-' as u8);
     dbg!('C' as u8);
     dbg!('R' as u8);
+    dbg!('&' as u8);
 }
