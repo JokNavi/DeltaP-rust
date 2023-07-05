@@ -16,10 +16,10 @@ pub trait ByteChunk {
 }
 
 pub trait ToBytes {
-    const BYTE_SIGN: u8;
     fn to_bytes(&self) -> Vec<u8>;
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Instruction {
     Add(Add),
     Remove(Remove),
@@ -28,29 +28,59 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    pub fn is_add(&self) -> bool {
-        matches!(self, Instruction::Add(_))
+    pub fn add(&self) -> Option<&Add> {
+        match self {
+            Instruction::Add(add_instruction) => Some(add_instruction),
+            _ => None
+        }
     }
 
-    pub fn is_remove(&self) -> bool {
-        matches!(self, Instruction::Remove(_))
+    pub fn remove(&self) -> Option<&Remove> {
+        match self {
+            Instruction::Remove(remove_instruction) => Some(remove_instruction),
+            _ => None
+        }
     }
 
-    pub fn is_copy(&self) -> bool {
-        matches!(self, Instruction::Copy(_))
+    pub fn copy(&self) -> Option<&Copy> {
+        match self {
+            Instruction::Copy(copy_instruction) => Some(copy_instruction),
+            _ => None
+        }
     }
 
-    pub fn is_reference(&self) -> bool {
-        matches!(self, Instruction::Reference(_))
+    pub fn reference(&self) -> Option<&Reference> {
+        match self {
+            Instruction::Reference(reference_instruction) => Some(reference_instruction),
+            _ => None
+        }
     }
-}
 
-impl PartialEq for Instruction {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Add(l0), Self::Add(r0)) => l0 == r0,
-            (Self::Remove(l0), Self::Remove(r0)) => l0 == r0,
-            _ => false,
+    pub fn add_mut(&mut self) -> Option<&mut Add> {
+        match self {
+            Instruction::Add(add_instruction) => Some(add_instruction),
+            _ => None
+        }
+    }
+
+    pub fn remove_mut(&mut self) -> Option<&mut Remove> {
+        match self {
+            Instruction::Remove(remove_instruction) => Some(remove_instruction),
+            _ => None
+        }
+    }
+
+    pub fn copy_mut(&mut self) -> Option<&mut Copy> {
+        match self {
+            Instruction::Copy(copy_instruction) => Some(copy_instruction),
+            _ => None
+        }
+    }
+
+    pub fn reference_mut(&mut self) -> Option<&mut Reference> {
+        match self {
+            Instruction::Reference(reference_instruction) => Some(reference_instruction),
+            _ => None
         }
     }
 }

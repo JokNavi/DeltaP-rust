@@ -6,9 +6,15 @@ use std::{
 
 pub type CopySize = u8;
 
-#[derive(Debug, Default)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Copy {
     chunk_length: CopySize,
+}
+
+impl Copy {
+    pub fn new(chunk_length: CopySize) -> Self {
+        Self { chunk_length }
+    }
 }
 
 impl ChunkLength for Copy {
@@ -20,7 +26,7 @@ impl ChunkLength for Copy {
 }
 
 impl PushByte for Copy {
-    fn push(&mut self, byte: u8) {
+    fn push(&mut self, _: u8) {
         self.chunk_length += 1;
     }
 
@@ -30,9 +36,8 @@ impl PushByte for Copy {
 }
 
 impl ToBytes for Copy {
-    const BYTE_SIGN: u8 = 'C' as u8;
 
     fn to_bytes(&self) -> Vec<u8> {
-        vec![Self::BYTE_SIGN, self.chunk_length]
+        vec![b'C', self.chunk_length]
     }
 }
