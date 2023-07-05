@@ -1,6 +1,6 @@
 use crate::instructions::{
     add::{Add, AddSize, self},
-    copy::Copy,
+    copy::{Copy, CopySize},
     instruction::{self, Instruction, PushByte, ChunkLength},
     reference::{Reference, ReferenceSize},
     remove::{Remove, RemoveSize},
@@ -14,95 +14,51 @@ pub struct DeltaP {
 impl DeltaP {
     fn new(source_bytes: &[u8], target_bytes: &[u8]) -> Self {
         let mut instructions: Vec<Instruction> = vec![];
-        let mut target_bytes_iter = target_bytes.iter().zip(source_bytes);
-
-        if target_bytes.len() > ReferenceSize::MAX.into() {
-            unimplemented!()
-        }
-
-        
-
-        while let Some((target_byte, source_byte)) = target_bytes_iter.next() {
-            match instructions.last_mut() {
-                Some(Instruction::Add(_))
-                | Some(Instruction::Remove(_))
-                | Some(Instruction::Reference(_))
-                | None
-                    if target_byte == source_byte =>
-                {
-                    let mut copy_instruction = Copy::default();
-                    copy_instruction.push(*target_byte);
-                    instructions.push(Instruction::Copy(copy_instruction));
+        let mut zipped_iterator = source_bytes.iter().zip(target_bytes).peekable();
+        while let Some((source_byte, target_byte)) = zipped_iterator.peek() {
+            if source_byte == target_byte {
+                let mut copy_instruction: Copy = Copy::default();
+                while let Some((source_byte, _)) = zipped_iterator.next_if(|(source_byte, target_byte)| source_byte == target_byte){
+                    copy_instruction.push(*source_byte);
+                    if copy_instruction.length() == CopySize::MAX {
+                        break
+                    }
                 }
-                Some(Instruction::Add(add_instruction)) => {
-                    add_instruction.push(*target_byte);
-                    let remove_instruction_index = instructions.len() - 2;
-                    let remove_instruction = instructions.get_mut(remove_instruction_index).unwrap().remove_mut().unwrap();
-                    remove_instruction.push(*source_byte);
-                }
-                Some(Instruction::Remove(_)) => unreachable!(),
-                Some(Instruction::Copy(copy_instruction)) if target_byte == source_byte => {
-                    copy_instruction.push(*target_byte);
-                }
-                Some(Instruction::Copy(_)) | Some(Instruction::Reference(_)) | None => {
-                    let mut remove_instruction = Remove::default();
-                    remove_instruction.push(*source_byte);
-                    instructions.push(Instruction::Remove(remove_instruction));
-
-                    let mut add_instruction = Add::default();
-                    add_instruction.push(*source_byte);
-                    instructions.push(Instruction::Add(add_instruction));
-                }
-            };
-        }
-
-        if target_bytes.len() > source_bytes.len() {
-            let mut missing_bytes = target_bytes.get(source_bytes.len()..).unwrap();
-            if let Some(add_instruction) = instructions.last_mut().and_then(|instruction| instruction.add_mut()) {
-                let slice = missing_bytes.get(..(AddSize::MAX - add_instruction.length()) as usize).unwrap_or(missing_bytes);
-                add_instruction.push_slice(slice);
-                missing_bytes = missing_bytes.get((AddSize::MAX - add_instruction.length()-1) as usize..).unwrap_or(missing_bytes);
-            }    
-            for chunk in missing_bytes.chunks(AddSize::MAX.into()) {
-                let mut add_instruction = Add::default();
-                add_instruction.push_slice(chunk);
-                instructions.push(Instruction::Add(add_instruction));
+                instructions.push(Instruction::Copy(copy_instruction));
             }
-        }
-        if target_bytes.len() < source_bytes.len() {
-            let mut missing_bytes = source_bytes.get(source_bytes.len()..).unwrap();
-            if let Some(remove_instruction) = instructions.last_mut().and_then(|instruction| instruction.remove_mut()) {
-                let slice = missing_bytes.get(..(RemoveSize::MAX - remove_instruction.length()) as usize).unwrap_or(missing_bytes);
-                remove_instruction.push_slice(slice);
-                missing_bytes = missing_bytes.get((RemoveSize::MAX - remove_instruction.length()-1) as usize..).unwrap_or(missing_bytes);
-            }                     
-            for chunk in missing_bytes.chunks(AddSize::MAX.into()) {
+            else {
                 let mut remove_instruction = Remove::default();
-                remove_instruction.push_slice(chunk);
-                instructions.push(Instruction::Remove(remove_instruction));
+                let mut add_instruction = Add::default();
+                while let Some((source_byte, target_byte)) = zipped_iterator.next_if(|(source_byte, target_byte)| source_byte != target_byte){
+                    remove_instruction.push(*source_byte);
+                    add_instruction.push(*target_byte);
+                    if remove_instruction.length() == RemoveSize::MAX{
+                        instructions.push(Instruction::Remove(remove_instruction).try_into_reference(&instructions));
+                        remove_instruction = Remove::default();
+                    }
+                    if add_instruction.length() == AddSize::MAX{
+                        instructions.push(Instruction::Add(add_instruction).try_into_reference(&instructions));
+                        add_instruction = Add::default();
+                    } 
+                }
+                instructions.push(Instruction::Remove(remove_instruction).try_into_reference(&instructions));
+                instructions.push(Instruction::Add(add_instruction).try_into_reference(&instructions));
             }
         }
-
-        let try_create_refence = |instruction: Instruction| -> Option<Reference> {
-            if !matches!(instruction, Instruction::Add(_) | Instruction::Remove(_)) {panic!();}
-            if instructions.contains(&instruction) {
-                return Some(Reference::new(instructions
-                    .iter()
-                    .position(|other_instruction| other_instruction == &instruction)
-                    .unwrap() as u16));
+        if source_bytes.len() > target_bytes.len() {
+            let mut remove_instruction = Remove::default();
+            for slice in source_bytes.get(target_bytes.len()..).unwrap().chunks(AddSize::MAX as usize) {
+                remove_instruction.push_slice(slice);
             }
-            None
+            instructions.push(Instruction::Remove(remove_instruction).try_into_reference(&instructions));
         };
-
-
-        for instruction in &mut instructions {
-            match instruction {
-                Instruction::Add(add_instruction) => todo!(),
-                Instruction::Remove(remove_instruction) => todo!(),
-                Instruction::Copy(_) => todo!(),
-                Instruction::Reference(_) => todo!(),
+        if target_bytes.len() > source_bytes.len() {
+            let mut add_instruction = Add::default();
+            for slice in target_bytes.get(source_bytes.len()..).unwrap().chunks(AddSize::MAX as usize) {
+                add_instruction.push_slice(slice);
             }
-        }
+            instructions.push(Instruction::Add(add_instruction).try_into_reference(&instructions));
+        };
         Self { instructions }
     }
 }
@@ -114,65 +70,27 @@ mod delta_p_tests {
         instructions::{add::Add, copy::Copy, instruction::PushByte, remove::Remove},
     };
 
+
     #[test]
     fn new() {
         let delta = DeltaP::new(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
-        let mut remove_instruction = Remove::with_capacity(3);
+       let mut remove_instruction = Remove::with_capacity(3);
         remove_instruction.push_slice(b"BBB");
         let mut add_instruction_one = Add::with_capacity(3);
         add_instruction_one.push_slice(b"XXX");
-        let mut add_instruction_two = Add::with_capacity(6);
-        add_instruction_two.push_slice(b"DDDFFF");
+        let mut add_instruction_two = Add::with_capacity(3);
+        add_instruction_two.push_slice(b"DDD");
+        let mut add_instruction_three = Add::with_capacity(3);
+        add_instruction_three.push_slice(b"FFF");
         let outcome_vector = vec![
             Instruction::Copy(Copy::new(3)),
             Instruction::Remove(remove_instruction),
             Instruction::Add(add_instruction_one),
             Instruction::Copy(Copy::new(3)),
-            Instruction::Reference(Reference::new(2)),
+            Instruction::Reference(Reference::new(1)),
             Instruction::Add(add_instruction_two),
-        ];
-        assert_eq!(delta.instructions, outcome_vector);
-    }
-
-    #[test]
-    fn new_2() {
-        let delta = DeltaP::new(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
-        let mut remove_instruction = Remove::with_capacity(3);
-        remove_instruction.push_slice(b"BBB");
-        let mut add_instruction_one = Add::with_capacity(3);
-        add_instruction_one.push_slice(b"XXX");
-        let mut add_instruction_two = Add::with_capacity(6);
-        add_instruction_two.push_slice(b"DDDFFF");
-        let outcome_vector = vec![
-            Instruction::Copy(Copy::new(3)),
-            Instruction::Remove(remove_instruction),
-            Instruction::Add(add_instruction_one),
-            Instruction::Reference(Reference::new(2)),
-            Instruction::Add(add_instruction_two),
+            Instruction::Add(add_instruction_three),
             ];
-        assert_eq!(delta.instructions, outcome_vector);
-    }
-
-    #[test]
-    fn new_3() {
-        let delta = DeltaP::new(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
-        let mut remove_instruction = Remove::with_capacity(3);
-        remove_instruction.push_slice(b"BBB");
-        let mut add_instruction_one = Add::with_capacity(3);
-        add_instruction_one.push_slice(b"XXX");
-        let mut add_instruction_two = Add::with_capacity(6);
-        add_instruction_two.push_slice(b"DDDFFF");
-        let outcome_vector = vec![
-            Instruction::Copy(Copy::new(3)),
-            Instruction::Remove(remove_instruction),
-            Instruction::Add(add_instruction_one),
-            Instruction::Reference(Reference::new(2)),
-            Instruction::Add(add_instruction_two),
-            ];
-
-        let mut remove_instruction = Remove::with_capacity(3);
-        remove_instruction.push_slice(b"BBB");
-        dbg!(outcome_vector.contains(&Instruction::Remove(remove_instruction)));
         assert_eq!(delta.instructions, outcome_vector);
     }
 }

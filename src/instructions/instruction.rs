@@ -83,6 +83,14 @@ impl Instruction {
             _ => None
         }
     }
+
+    pub fn try_into_reference(self, collection: &Vec<Instruction>) -> Instruction {
+        if collection.contains(&self) {
+            let index = collection.iter().position(|instruction| instruction == &self).unwrap();
+            return Instruction::Reference(Reference::new(index.try_into().unwrap()));
+        }
+        self
+    }
 }
 
 
