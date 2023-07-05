@@ -1,4 +1,4 @@
-use super::{copy::CopyCommand, add::AddCommand};
+use super::{copy::CopyCommand, add::AddCommand, remove::RemoveCommand};
 
 #[derive(Debug, PartialEq)]
 pub enum ChunkError {
@@ -20,7 +20,7 @@ pub trait ToBytes {
 pub enum Command {
     Copy(CopyCommand),
     Add(AddCommand),
-    Remove(()),
+    Remove(RemoveCommand),
     Reference(()),
 }
 
@@ -39,6 +39,13 @@ impl Command {
         }
     }
 
+    pub fn remove(&self) -> Option<&RemoveCommand> {
+        match self {
+            Command::Remove(remove) => Some(remove),
+            _ => None
+        }
+    }
+
     //TODO
 }
 
@@ -48,7 +55,7 @@ impl ToBytes for Command {
         match self {
             Command::Copy(copy) => copy.to_bytes(),
             Command::Add(add) => add.to_bytes(),
-            Command::Remove(_) => todo!(),
+            Command::Remove(remove) => remove.to_bytes(),
             Command::Reference(_) => todo!(),
         }
     }
