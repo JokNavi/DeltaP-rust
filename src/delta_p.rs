@@ -1,18 +1,17 @@
 use crate::instructions::{
-    add::{Add, AddSize, self},
+    add::{Add, AddSize},
     copy::{Copy, CopySize},
-    instruction::{self, Instruction, PushByte, ChunkLength},
-    reference::{Reference, ReferenceSize},
+    instruction::{Instruction, PushByte, ChunkLength, ToBytes, self},
     remove::{Remove, RemoveSize},
 };
 
 #[derive(Debug)]
-pub struct DeltaP {
+pub struct DeltaPatch {
     instructions: Vec<Instruction>,
 }
 
-impl DeltaP {
-    fn new(source_bytes: &[u8], target_bytes: &[u8]) -> Self {
+impl DeltaPatch {
+    pub fn encode(source_bytes: &[u8], target_bytes: &[u8]) -> Self {
         let mut instructions: Vec<Instruction> = vec![];
         let mut zipped_iterator = source_bytes.iter().zip(target_bytes).peekable();
         while let Some((source_byte, target_byte)) = zipped_iterator.peek() {
@@ -63,17 +62,22 @@ impl DeltaP {
     }
 }
 
+impl ToBytes for DeltaPatch {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.instructions.iter().map(|instruction| instruction.to_bytes()).flatten().collect()
+    }
+}
+
 #[cfg(test)]
 mod delta_p_tests {
     use crate::{
-        delta_p::{DeltaP, Instruction, Reference},
-        instructions::{add::Add, copy::Copy, instruction::PushByte, remove::Remove},
+        delta_p::{DeltaPatch, Instruction},
+        instructions::{add::Add, copy::Copy, instruction::{PushByte, ToBytes}, remove::Remove, reference::Reference},
     };
 
-
     #[test]
-    fn new() {
-        let delta = DeltaP::new(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
+    fn encode() {
+        let delta = DeltaPatch::encode(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
        let mut remove_instruction = Remove::with_capacity(3);
         remove_instruction.push_slice(b"BBB");
         let mut add_instruction_one = Add::with_capacity(3);
@@ -93,4 +97,11 @@ mod delta_p_tests {
             ];
         assert_eq!(delta.instructions, outcome_vector);
     }
+
+    #[test]
+    fn bench() {
+        let delta = DeltaPatch::encode(b"AAABBBAAABBB", b"AAAXXXAAADDDFFF");
+        println!("{}", delta.to_bytes().iter().map(|char| *char as char).collect::<String>());
+    }
+
 }

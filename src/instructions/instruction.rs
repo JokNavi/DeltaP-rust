@@ -93,4 +93,15 @@ impl Instruction {
     }
 }
 
+impl ToBytes for Instruction {
+    fn to_bytes(&self) -> Vec<u8> {
+        match self {
+            Instruction::Add(add) => add.to_bytes(),
+            Instruction::Remove(remove) => remove.to_bytes(),
+            Instruction::Copy(copy) => copy.to_bytes(),
+            Instruction::Reference(reference) => reference.to_bytes(),
+        }
+    }
+}
+
 
