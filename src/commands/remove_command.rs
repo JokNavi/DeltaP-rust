@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::{slice::Iter, iter::{Peekable, Zip}};
 use super::command_util::{ChunkError, ToBytes, FromBytesError, Command};
 
 const REMOVE_COMMAND_SIGN: u8 = b'-';
@@ -60,11 +60,13 @@ impl TryFrom<&mut Iter<'_, u8>> for RemoveCommand {
     }
 }
 
+
 impl From<RemoveCommand> for Command {
     fn from(value: RemoveCommand) -> Self {
         Command::Remove(value)
     }
 }
+
 
 #[cfg(test)]
 mod add_command_tests {

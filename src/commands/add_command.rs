@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::{slice::Iter, iter::{Peekable, Zip}};
 use super::command_util::{ChunkError, ToBytes, FromBytesError, Command};
 
 const ADD_COMMAND_SIGN: u8 = b'+';
@@ -65,6 +65,7 @@ impl From<AddCommand> for Command {
         Command::Add(value)
     }
 }
+
 
 #[cfg(test)]
 mod add_command_tests {
