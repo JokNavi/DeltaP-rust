@@ -1,27 +1,18 @@
-use crate::instructions::instruction::{ByteChunk, ChunkLength, ToBytes};
+use super::instruction::{PushByte, ByteChunk, ChunkLength, ToBytes};
 
 pub type AddSize = u8;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Add {
     byte_chunk: Vec<u8>,
     chunk_length: AddSize,
 }
 
 impl Add {
-    pub fn new(chunk_length: AddSize) -> Self {
+    pub fn with_capacity(chunk_length: AddSize) -> Self {
         Self {
             byte_chunk: Vec::with_capacity(chunk_length as usize),
-            chunk_length: chunk_length,
-        }
-    }
-}
-
-impl Default for Add {
-    fn default() -> Self {
-        Self {
-            byte_chunk: Default::default(),
-            chunk_length: Default::default(),
+            chunk_length: 0,
         }
     }
 }
@@ -39,15 +30,23 @@ impl ByteChunk for Add {
         self.byte_chunk.as_slice()
     }
 
+}
+
+impl PushByte for Add {
     fn push(&mut self, byte: u8) {
         self.byte_chunk.push(byte);
+        self.chunk_length += 1; 
+    }
+
+    fn push_slice(&mut self, slice: &[u8]) {
+        self.byte_chunk.extend_from_slice(slice);
+        self.chunk_length += slice.len() as u8;
     }
 }
 
 impl ToBytes for Add {
-    const BYTE_SIGN: u8 = '+' as u8;
     fn to_bytes(&self) -> Vec<u8> { 
-        let mut bytes = vec![Self::BYTE_SIGN, self.chunk_length];
+        let mut bytes = vec![b'+', self.chunk_length];
         bytes.extend_from_slice(self.bytes());
         bytes
     }

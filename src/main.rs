@@ -1,10 +1,8 @@
+use crate::{delta_p::DeltaPatch, instructions::instruction::ToBytes};
+
 pub mod instructions;
+pub mod delta_p;
 
 fn main() {
     println!("Hello, world!");
-    dbg!('+' as u8);
-    dbg!('-' as u8);
-    dbg!('C' as u8);
-    dbg!('R' as u8);
-    dbg!('&' as u8);
 }
