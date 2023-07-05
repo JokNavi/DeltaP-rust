@@ -1,7 +1,7 @@
-use super::copy::CopyCommand;
+use super::{copy::CopyCommand, add::AddCommand};
 
 #[derive(Debug, PartialEq)]
-pub enum ChunkLengthError {
+pub enum ChunkError {
     ChunkLengthOverFlow,
 }
 
@@ -19,7 +19,7 @@ pub trait ToBytes {
 
 pub enum Command {
     Copy(CopyCommand),
-    Add(()),
+    Add(AddCommand),
     Remove(()),
     Reference(()),
 }
@@ -32,6 +32,13 @@ impl Command {
         }
     }
 
+    pub fn add(&self) -> Option<&AddCommand> {
+        match self {
+            Command::Add(add) => Some(add),
+            _ => None
+        }
+    }
+
     //TODO
 }
 
@@ -40,7 +47,7 @@ impl ToBytes for Command {
     fn to_bytes(&self) -> Vec<u8> {
         match self {
             Command::Copy(copy) => copy.to_bytes(),
-            Command::Add(_) => todo!(),
+            Command::Add(add) => add.to_bytes(),
             Command::Remove(_) => todo!(),
             Command::Reference(_) => todo!(),
         }
