@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use super::util::{ChunkError, FromBytesError, ToBytes, Command};
+use super::command_util::{ChunkError, FromBytesError, ToBytes, Command};
 
 const COPY_COMMAND_SIGN: u8 = b'#';
 
@@ -56,7 +56,7 @@ impl From<CopyCommand> for Command {
 
 #[cfg(test)]
 mod copy_command_tests {
-    use crate::commands::util::ToBytes;
+    use crate::commands::{command_util::{ToBytes, Command}, copy_command::COPY_COMMAND_SIGN};
     use super::CopyCommand;
 
     #[test]
@@ -86,6 +86,11 @@ mod copy_command_tests {
     #[test]
     fn to_bytes() {
         let copy = CopyCommand::default();
-        assert_eq!(copy.to_bytes(), vec![b'#', 0]);
+        assert_eq!(copy.to_bytes(), vec![COPY_COMMAND_SIGN, 0]);
+    }
+
+    #[test]
+    fn from() {
+        let _: Command = CopyCommand::default().into();
     }
 }

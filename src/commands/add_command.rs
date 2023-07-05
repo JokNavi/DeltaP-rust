@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use super::util::{ChunkError, ToBytes, FromBytesError, Command};
+use super::command_util::{ChunkError, ToBytes, FromBytesError, Command};
 
 const ADD_COMMAND_SIGN: u8 = b'+';
 
@@ -68,7 +68,7 @@ impl From<AddCommand> for Command {
 
 #[cfg(test)]
 mod add_command_tests {
-    use crate::commands::util::ToBytes;
+    use crate::commands::{command_util::{ToBytes, Command}, add_command::ADD_COMMAND_SIGN};
     use super::AddCommand;
 
 
@@ -99,9 +99,9 @@ mod add_command_tests {
     #[test]
     fn to_bytes() {
         let mut add = AddCommand::default();
-        assert_eq!(add.to_bytes(), vec![b'+', 0]);
+        assert_eq!(add.to_bytes(), vec![ADD_COMMAND_SIGN, 0]);
         add.extend_from_slice(b"XXX").unwrap();
-        let mut expected_bytes = vec![b'+', 3];
+        let mut expected_bytes = vec![ADD_COMMAND_SIGN, 3];
         expected_bytes.extend_from_slice(b"XXX");
         assert_eq!(add.to_bytes(), expected_bytes);
     }
@@ -112,5 +112,10 @@ mod add_command_tests {
         let add = AddCommand::try_from(&mut bytes[1..].iter());
         assert!(add.is_ok());
         assert_eq!(add.unwrap().to_bytes(), bytes);
+    }
+
+    #[test]
+    fn from() {
+        let _: Command = AddCommand::default().into();
     }
 }
