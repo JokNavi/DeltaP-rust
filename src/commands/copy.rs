@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use super::util::{ChunkLengthError, FromBytesError, ToBytes, Command};
+use super::util::{ChunkError, FromBytesError, ToBytes, Command};
 
 const COPY_COMMAND_SIGN: u8 = b'#';
 
@@ -17,16 +17,16 @@ impl CopyCommand {
         self.chunk_length
     }
 
-    pub fn increment(&mut self) -> Result<(), ChunkLengthError> {
+    pub fn increment(&mut self) -> Result<(), ChunkError> {
         if self.chunk_length == u8::MAX {
-            return Err(ChunkLengthError::ChunkLengthOverFlow);
+            return Err(ChunkError::ChunkLengthOverFlow);
         } 
         self.chunk_length += 1;
         Ok(())
     }
 
-    pub fn increment_by(&mut self, amount: u8) -> Result<(), ChunkLengthError> {
-        self.chunk_length = self.chunk_length.checked_add(amount).ok_or(ChunkLengthError::ChunkLengthOverFlow)?;
+    pub fn increment_by(&mut self, amount: u8) -> Result<(), ChunkError> {
+        self.chunk_length = self.chunk_length.checked_add(amount).ok_or(ChunkError::ChunkLengthOverFlow)?;
         Ok(())
     }
 }
@@ -81,5 +81,11 @@ mod copy_command_tests {
         let copy = CopyCommand::try_from(&mut bytes[1..].iter());
         assert!(copy.is_ok());
         assert_eq!(copy.unwrap().to_bytes(), bytes);
+    }
+
+    #[test]
+    fn to_bytes() {
+        let copy = CopyCommand::default();
+        assert_eq!(copy.to_bytes(), vec![b'#', 0]);
     }
 }
