@@ -1,5 +1,5 @@
 use std::slice::Iter;
-use super::util::{ChunkLengthError, FromBytesError, ToBytes};
+use super::util::{ChunkLengthError, FromBytesError, ToBytes, Command};
 
 const COPY_COMMAND_SIGN: u8 = b'#';
 
@@ -44,6 +44,12 @@ impl TryFrom<&mut Iter<'_, u8>> for CopyCommand {
     fn try_from(value: &mut Iter<'_, u8>) -> Result<Self, Self::Error> {
         let chunk_length = value.next().ok_or(FromBytesError::ExpectedChunkLength)?;
         Ok(Self::new(*chunk_length))
+    }
+}
+
+impl From<CopyCommand> for Command {
+    fn from(value: CopyCommand) -> Self {
+        Command::Copy(value)
     }
 }
 
