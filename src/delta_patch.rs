@@ -20,7 +20,6 @@ impl DeltaPatch {
 
         let mut commands: Vec<Command> = vec![];
         while let Some((source_byte_peek, target_byte_peek)) = bytes_iterator.peek() {
-            
             if source_byte_peek == target_byte_peek {
                 commands.push_command(CopyCommand::from(&mut bytes_iterator).into());
             } else {
@@ -42,23 +41,56 @@ impl DeltaPatch {
                 commands.push_command(add.into());
             }
         }
+
         if source_bytes_iter.len() > 0 {
-            for chunk in source_bytes_iter
-                .copied()
-                .collect::<Vec<u8>>()
-                .chunks(u8::MAX as usize)
-            {
-                commands.push_command(RemoveCommand::new(chunk.to_vec()).unwrap().into());
+            while source_bytes_iter.len() > u8::MAX as usize {
+                commands.push_command(
+                    RemoveCommand::new(
+                        source_bytes_iter
+                            .by_ref()
+                            .take(u8::MAX as usize)
+                            .copied()
+                            .collect::<Vec<u8>>(),
+                    )
+                    .unwrap()
+                    .into(),
+                );
             }
+            commands.push_command(
+                RemoveCommand::new(
+                    source_bytes_iter
+                        .take(u8::MAX as usize)
+                        .copied()
+                        .collect::<Vec<u8>>(),
+                )
+                .unwrap()
+                .into(),
+            );
         }
         if target_bytes_iter.len() > 0 {
-            for chunk in target_bytes_iter
-                .copied()
-                .collect::<Vec<u8>>()
-                .chunks(u8::MAX as usize)
-            {
-                commands.push_command(AddCommand::new(chunk.to_vec()).unwrap().into());
+            while target_bytes_iter.len() > u8::MAX as usize {
+                commands.push_command(
+                    AddCommand::new(
+                        target_bytes_iter
+                            .by_ref()
+                            .take(u8::MAX as usize)
+                            .copied()
+                            .collect::<Vec<u8>>(),
+                    )
+                    .unwrap()
+                    .into(),
+                );
             }
+            commands.push_command(
+                AddCommand::new(
+                    target_bytes_iter
+                        .take(u8::MAX as usize)
+                        .copied()
+                        .collect::<Vec<u8>>(),
+                )
+                .unwrap()
+                .into(),
+            );
         }
         DeltaPatch::new(commands)
     }
@@ -82,18 +114,21 @@ pub trait Patch {
 
 #[cfg(test)]
 mod delta_patch_tests {
-    use crate::{commands::{
-        add_command::AddCommand,
-        command_util::{Command, REFERENCE_COPY_COMMANDS},
-        copy_command::CopyCommand,
-        reference_command::ReferenceCommand,
-        remove_command::RemoveCommand,
-    }, delta_patch::DeltaPatch};
+    use crate::{
+        commands::{
+            add_command::AddCommand,
+            command_util::{Command, REFERENCE_COPY_COMMANDS},
+            copy_command::CopyCommand,
+            reference_command::ReferenceCommand,
+            remove_command::RemoveCommand,
+        },
+        delta_patch::DeltaPatch,
+    };
 
     #[test]
     fn encode() {
         let source_bytes = b"AAABBBCCCDDDEEE";
-        let target_bytes = b"AAAFFFCCCFFFCCC";
+        let target_bytes = b"AAAFFFCCCFFFCCCAAA";
 
         if REFERENCE_COPY_COMMANDS {
             let expected_commands: Vec<Command> = vec![
@@ -103,9 +138,13 @@ mod delta_patch_tests {
                 ReferenceCommand::new(0).into(),
                 RemoveCommand::new(b"DDDEEE".to_vec()).unwrap().into(),
                 AddCommand::new(b"FFFCCC".to_vec()).unwrap().into(),
+                AddCommand::new(b"AAA".to_vec()).unwrap().into(),
             ];
-            assert_eq!(expected_commands, DeltaPatch::encode(source_bytes, target_bytes).commands);
-        }else {
+            assert_eq!(
+                expected_commands,
+                DeltaPatch::encode(source_bytes, target_bytes).commands
+            );
+        } else {
             let expected_commands: Vec<Command> = vec![
                 CopyCommand::new(3).into(),
                 RemoveCommand::new(b"BBB".to_vec()).unwrap().into(),
@@ -113,8 +152,12 @@ mod delta_patch_tests {
                 CopyCommand::new(3).into(),
                 RemoveCommand::new(b"DDDEEE".to_vec()).unwrap().into(),
                 AddCommand::new(b"FFFCCC".to_vec()).unwrap().into(),
+                AddCommand::new(b"AAA".to_vec()).unwrap().into(),
             ];
-            assert_eq!(expected_commands, DeltaPatch::encode(source_bytes, target_bytes).commands);
+            assert_eq!(
+                expected_commands,
+                DeltaPatch::encode(source_bytes, target_bytes).commands
+            );
         }
     }
 }
