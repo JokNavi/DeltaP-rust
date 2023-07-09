@@ -1,4 +1,4 @@
-use std::{slice::Iter, iter::{Peekable, Zip}};
+use std::slice::Iter;
 use super::command_util::{ChunkError, ToBytes, FromBytesError, Command};
 
 const REMOVE_COMMAND_SIGN: u8 = b'-';

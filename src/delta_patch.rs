@@ -1,15 +1,15 @@
 use crate::commands::{
     add_command::AddCommand,
-    command_util::{AppendCommand, Command},
+    command_util::{AppendCommand, Command, ToBytes},
     copy_command::CopyCommand,
     remove_command::RemoveCommand,
 };
 
-pub struct DeltaPatch {
+pub struct Patch {
     commands: Vec<Command>,
 }
 
-impl DeltaPatch {
+impl Patch {
     pub fn encode(source_bytes: &[u8], target_bytes: &[u8]) -> Self {
         let mut source_bytes_iter = source_bytes.iter();
         let mut target_bytes_iter = target_bytes.iter();
@@ -92,7 +92,7 @@ impl DeltaPatch {
                 .into(),
             );
         }
-        DeltaPatch::new(commands)
+        Patch::new(commands)
     }
 
     fn new(commands: Vec<Command>) -> Self {
@@ -100,14 +100,25 @@ impl DeltaPatch {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DeltaPatchError {}
+impl ToBytes for Patch {
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = vec![];
+        for command in &self.commands {
+            bytes.append(&mut command.to_bytes());
+        }
+        bytes
+    }
+}
 
-pub trait Patch {
-    fn apply_patch(&self, patch: &DeltaPatch) -> Result<Self, DeltaPatchError>
+#[derive(Debug, PartialEq)]
+pub enum ApplyPatchError {}
+
+pub trait ApplyPatch {
+    fn to_target(&self, patch: &Patch) -> Result<Self, ApplyPatchError>
     where
         Self: Sized;
-    fn revert_patch(&self, patch: &DeltaPatch) -> Result<Self, DeltaPatchError>
+        
+    fn to_source(&self, patch: &Patch) -> Result<Self, ApplyPatchError>
     where
         Self: Sized;
 }
@@ -122,13 +133,13 @@ mod delta_patch_tests {
             reference_command::ReferenceCommand,
             remove_command::RemoveCommand,
         },
-        delta_patch::DeltaPatch,
+        delta_patch::Patch,
     };
 
     #[test]
     fn encode() {
         let source_bytes = b"AAABBBCCCDDDEEE";
-        let target_bytes = b"AAAFFFCCCFFFCCCAAA";
+        let target_bytes = b"AAAFFFCCCFFFCCCFFF";
 
         if REFERENCE_COPY_COMMANDS {
             let expected_commands: Vec<Command> = vec![
@@ -138,11 +149,11 @@ mod delta_patch_tests {
                 ReferenceCommand::new(0).into(),
                 RemoveCommand::new(b"DDDEEE".to_vec()).unwrap().into(),
                 AddCommand::new(b"FFFCCC".to_vec()).unwrap().into(),
-                AddCommand::new(b"AAA".to_vec()).unwrap().into(),
+                ReferenceCommand::new(2).into(),
             ];
             assert_eq!(
                 expected_commands,
-                DeltaPatch::encode(source_bytes, target_bytes).commands
+                Patch::encode(source_bytes, target_bytes).commands
             );
         } else {
             let expected_commands: Vec<Command> = vec![
@@ -152,11 +163,11 @@ mod delta_patch_tests {
                 CopyCommand::new(3).into(),
                 RemoveCommand::new(b"DDDEEE".to_vec()).unwrap().into(),
                 AddCommand::new(b"FFFCCC".to_vec()).unwrap().into(),
-                AddCommand::new(b"AAA".to_vec()).unwrap().into(),
+                ReferenceCommand::new(2).into(),
             ];
             assert_eq!(
                 expected_commands,
-                DeltaPatch::encode(source_bytes, target_bytes).commands
+                Patch::encode(source_bytes, target_bytes).commands
             );
         }
     }
