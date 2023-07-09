@@ -66,6 +66,7 @@ impl From<AddCommand> for Command {
     }
 }
 
+
 #[cfg(test)]
 mod add_command_tests {
     use crate::commands::{command_util::{ToBytes, Command}, add_command::ADD_COMMAND_SIGN};

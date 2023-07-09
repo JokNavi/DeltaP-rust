@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::{slice::Iter, iter::{Peekable, Zip}};
 
 use super::command_util::{AppendCommand, Command, FindReference, FromBytesError, ToBytes};
 
@@ -43,6 +43,7 @@ impl From<ReferenceCommand> for Command {
         Command::Reference(value)
     }
 }
+
 
 #[cfg(test)]
 mod command_tests {

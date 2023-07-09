@@ -60,11 +60,13 @@ impl TryFrom<&mut Iter<'_, u8>> for RemoveCommand {
     }
 }
 
+
 impl From<RemoveCommand> for Command {
     fn from(value: RemoveCommand) -> Self {
         Command::Remove(value)
     }
 }
+
 
 #[cfg(test)]
 mod add_command_tests {

@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::{slice::Iter, iter::{Peekable, Zip}};
 use super::command_util::{ChunkError, FromBytesError, ToBytes, Command};
 
 const COPY_COMMAND_SIGN: u8 = b'#';
@@ -52,6 +52,18 @@ impl From<CopyCommand> for Command {
         Command::Copy(value)
     }
 }
+
+impl From<&mut Peekable<Zip<&mut Iter<'_, u8>, &mut Iter<'_, u8>>>> for CopyCommand {
+    fn from(value: &mut Peekable<Zip<&mut Iter<'_, u8>, &mut Iter<'_, u8>>>) -> Self {
+        let mut copy = CopyCommand::default();
+        while let Some((_, _)) = value.next_if(|(source_byte, target_byte)| source_byte == target_byte){
+            if copy.increment().is_err(){
+                break;
+            }
+        }
+        copy
+    }
+} 
 
 
 #[cfg(test)]

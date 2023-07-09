@@ -1,11 +1,12 @@
+
 use super::{
     add_command::AddCommand,
     copy_command::CopyCommand,
     reference_command::{ReferenceCommand, ReferenceCommandIndex},
     remove_command::RemoveCommand,
 };
-
-const REFERENCE_COPY_COMMANDS: bool = true;
+ 
+pub const REFERENCE_COPY_COMMANDS: bool = false;
 
 #[derive(Debug, PartialEq)]
 pub enum ChunkError {
