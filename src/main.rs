@@ -1,12 +1,21 @@
-use crate::{delta_patch::Patch, commands::command_util::ToBytes};
-
 pub mod commands;
-pub mod delta_patch;
+use miniz_oxide::deflate::compress_to_vec;
+use miniz_oxide::inflate::decompress_to_vec_with_limit;
+
+fn roundtrip(data: &[u8]) {
+    // Compress the input
+    let compressed = compress_to_vec(data, 9);
+    println!("{:?}", &compressed.iter().map(|x| *x as char).collect::<String>());
+    dbg!(compressed.len());
+    dbg!(data.len());
+    // Decompress the compressed input and limit max output size to avoid going out of memory on large/malformed input.
+    let decompressed = decompress_to_vec_with_limit(compressed.as_slice(), 60000).expect("Failed to decompress!");
+    // Check roundtrip succeeded
+    println!("{:?}", &decompressed.iter().map(|x| *x as char).collect::<String>());
+    assert_eq!(data, decompressed);
+}
 
 fn main() {
-    println!("Hello, world!");
-        let source_bytes = b"My white cat likes jumping over the fence.";
-        let target_bytes = b"My brown cat likes jumping over the stall.";
-        let delta = Patch::encode(source_bytes, target_bytes);
-        println!("{}", delta.to_bytes().iter().map(|byte| *byte as char).collect::<String>());
+    roundtrip(b"-4AAAA+4BBBB#3-8CCCCAAAA+8EEEEEEEE");
 }
+

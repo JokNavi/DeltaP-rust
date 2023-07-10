@@ -1,62 +1,91 @@
+use std::iter::Peekable;
 use std::slice::Iter;
-use super::command_util::{ChunkError, ToBytes, FromBytesError, Command};
 
-const ADD_COMMAND_SIGN: u8 = b'+';
+use super::commands_enum::{Command, CommandBytes, CommandError, PushToCommand};
+pub type AddLength = u8;
 
 #[derive(Debug, PartialEq, Default)]
 pub struct AddCommand {
-    byte_chunk: Vec<u8>,
+    new_bytes: Vec<u8>,
 }
 
 impl AddCommand {
-    pub fn new(byte_chunk: Vec<u8>) -> Result<Self, ChunkError> {
-        if byte_chunk.len() <= u8::MAX.into() {
-            return Ok(Self { byte_chunk });
+    pub fn new(new_bytes: Vec<u8>) ->  Result<Self, CommandError> {
+        if new_bytes.len() > AddLength::MAX.into() {
+            return Err(CommandError::ByteLimitReached(AddLength::MAX.into()));
         }
-        Err(ChunkError::ChunkLengthOverFlow)
+        Ok(Self { new_bytes})
     }
 
-    pub fn chunk_length(&self) -> u8 {
-        self.byte_chunk.len() as u8
+    pub fn length(&self) -> AddLength {
+        self.new_bytes.len() as AddLength
     }
 
-    pub fn byte_chunk(&self) -> &[u8] {
-        self.byte_chunk.as_slice()
-    }
-
-    pub fn push(&mut self, byte: u8) -> Result<(), ChunkError>{
-        if self.byte_chunk.len() < u8::MAX as usize {
-            self.byte_chunk.push(byte);
-            return Ok(());
-        }
-        Err(ChunkError::ChunkLengthOverFlow)
-    }
-
-    pub fn extend_from_slice(&mut self, byte: &[u8]) -> Result<(), ChunkError>{
-        if self.byte_chunk.len() + byte.len() <= u8::MAX as usize {
-            self.byte_chunk.extend_from_slice(byte);
-            return Ok(());
-        }
-        Err(ChunkError::ChunkLengthOverFlow)
+    pub fn bytes(&self) -> &[u8] {
+        &self.new_bytes
+        
     }
 }
 
-impl ToBytes for AddCommand {
-    
-    fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![ADD_COMMAND_SIGN, self.chunk_length()];
-        bytes.extend(self.byte_chunk.iter());
-        bytes        
+impl PushToCommand for AddCommand {
+    fn push(&mut self, byte: u8) -> Result<(), CommandError> {
+        if self.new_bytes.len() + 1 > AddLength::MAX.into() {
+            return Err(CommandError::ByteLimitReached(AddLength::MAX.into()));
+        }
+        self.new_bytes.push(byte);
+        Ok(())
+    }
+
+    fn push_chunk(&mut self, bytes: &[u8]) -> Result<(), CommandError>
+    where
+        Self: Sized,
+    {
+        if self.new_bytes.len() + bytes.len() > AddLength::MAX.into() {
+            return Err(CommandError::ByteLimitReached(AddLength::MAX.into()));
+        }
+        self.new_bytes.extend_from_slice(bytes);
+        Ok(())
     }
 }
 
-impl TryFrom<&mut Iter<'_, u8>> for AddCommand {
-    type Error = FromBytesError;
+impl CommandBytes for AddCommand {
+    const COMMAND_SIGN: u8 = b'+';
 
-    fn try_from(value: &mut Iter<'_, u8>) -> Result<Self, Self::Error> {
-        let chunk_length = value.next().ok_or(FromBytesError::ExpectedChunkLength)?;
-        let chunk: Vec<u8> = value.take(*chunk_length as usize).copied().collect();
-        Ok(AddCommand::new(chunk).unwrap())
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![Self::COMMAND_SIGN];
+        let command_bytes = self.bytes();
+        bytes.extend_from_slice(&(command_bytes.len() as AddLength).to_be_bytes());
+        bytes.extend_from_slice(command_bytes);
+        bytes
+    }
+
+    fn from_bytes(bytes: &mut Peekable<Iter<'_, u8>>) -> Result<Self, CommandError>
+    where
+        Self: Sized,
+    {
+        if bytes.next().ok_or(CommandError::ExpectedCommandSign(Self::COMMAND_SIGN))? != &Self::COMMAND_SIGN {
+            return Err(CommandError::ExpectedCommandSign(Self::COMMAND_SIGN));
+        };
+        let length = *bytes.next().ok_or(CommandError::ExpectedCommandLength)?;
+        let mut add = AddCommand::default();
+        for _ in 0..length {
+            add.push( *bytes.next().ok_or(CommandError::ExpectedChangeBytes)?)?;
+        }
+        Ok(add)
+    }
+}
+
+impl From<AddCommand> for Vec<u8> {
+    fn from(value: AddCommand) -> Self {
+        value.as_bytes()
+    }
+}
+
+impl TryFrom<&mut Peekable<Iter<'_, u8>>> for AddCommand {
+    type Error = CommandError;
+
+    fn try_from(value: &mut Peekable<Iter<'_, u8>>) -> Result<Self, Self::Error> {
+        AddCommand::from_bytes(value)
     }
 }
 
@@ -66,57 +95,63 @@ impl From<AddCommand> for Command {
     }
 }
 
-
 #[cfg(test)]
-mod add_command_tests {
-    use crate::commands::{command_util::{ToBytes, Command}, add_command::ADD_COMMAND_SIGN};
-    use super::AddCommand;
-
+mod copy_command_tests {
+    use super::*;
 
     #[test]
     fn new() {
-        assert!(AddCommand::new(vec![0;u8::MAX as usize]).is_ok());
-        assert!(AddCommand::new(vec![0;u8::MAX as usize + 1]).is_err());
+        let add = AddCommand::default();
+        assert_eq!(add.length(), 0);
+        assert_eq!(add.bytes(), b"");
+
+        let add = AddCommand::new(b"AAA".to_vec()).unwrap();
+        assert_eq!(add.length(), 3);
+        assert_eq!(add.bytes(), b"AAA");
+
+        let add = AddCommand::new(vec![0; AddLength::MAX as usize]).unwrap();
+        assert_eq!(add.length(), AddLength::MAX);
+        assert_eq!(add.bytes(), vec![0; AddLength::MAX as usize]);
+
+        let add = AddCommand::new(vec![0; AddLength::MAX as usize + 1]);
+        assert!(add.is_err());
+        assert_eq!(add.unwrap_err(), CommandError::ByteLimitReached(AddLength::MAX.into()));
     }
 
     #[test]
     fn push() {
-        let mut add = AddCommand::new(vec![0;u8::MAX as usize - 1]).unwrap();
-        assert!(add.push(b'X').is_ok());
-        assert_eq!(add.chunk_length(), u8::MAX);
-        assert!(add.push(b'X').is_err());
-        assert_eq!(add.chunk_length(), u8::MAX);
-    } 
-
-    #[test]
-    fn extend_from_slice() {
-        let mut add = AddCommand::new(vec![0;u8::MAX as usize - 3]).unwrap();
-        assert!(add.extend_from_slice(b"XX").is_ok());
-        assert_eq!(add.chunk_length(), u8::MAX - 1);
-        assert!(add.extend_from_slice(b"XXX").is_err());
-        assert_eq!(add.chunk_length(), u8::MAX - 1);
-    } 
-
-    #[test]
-    fn to_bytes() {
-        let mut add = AddCommand::default();
-        assert_eq!(add.to_bytes(), vec![ADD_COMMAND_SIGN, 0]);
-        add.extend_from_slice(b"XXX").unwrap();
-        let mut expected_bytes = vec![ADD_COMMAND_SIGN, 3];
-        expected_bytes.extend_from_slice(b"XXX");
-        assert_eq!(add.to_bytes(), expected_bytes);
+        let mut add = AddCommand::new(vec![0; AddLength::MAX as usize -1]).unwrap();
+        assert_eq!(add.length(), AddLength::MAX -1);
+        assert!(add.push(b'A').is_ok());
+        assert_eq!(add.length(), AddLength::MAX);
+        assert!(add.push(b'A').is_err());
     }
 
     #[test]
-    fn try_from_iter_bytes() {
-        let bytes = AddCommand::default().to_bytes();
-        let add = AddCommand::try_from(&mut bytes[1..].iter());
+    fn push_chunk() {
+        let mut add = AddCommand::new(vec![0; AddLength::MAX as usize -2]).unwrap();
+        assert_eq!(add.length(), AddLength::MAX -2);
+        assert!(add.push_chunk(b"AA").is_ok());
+        assert_eq!(add.length(), AddLength::MAX);
+        assert!(add.push_chunk(b"AA").is_err());
+    }
+
+    #[test]
+    fn as_bytes() {
+        assert_eq!(AddCommand::default().as_bytes(), vec![AddCommand::COMMAND_SIGN, 0]);
+        assert_eq!(AddCommand::new(b"AAA".to_vec()).unwrap().as_bytes(), vec![AddCommand::COMMAND_SIGN, 3, b'A', b'A', b'A']);
+    }
+
+    #[test]
+    fn from_bytes() {
+        let bytes = vec![AddCommand::COMMAND_SIGN, 0 as u8];
+        let add = AddCommand::try_from(&mut bytes.iter().peekable());
         assert!(add.is_ok());
-        assert_eq!(add.unwrap().to_bytes(), bytes);
-    }
+        assert_eq!(add.unwrap(), AddCommand::default());
 
-    #[test]
-    fn from() {
-        let _: Command = AddCommand::default().into();
+        let bytes = b"lol";
+        let add = AddCommand::try_from(&mut bytes.iter().peekable());
+        assert!(add.is_err());
+        assert_eq!(add.unwrap_err(), CommandError::ExpectedCommandSign(AddCommand::COMMAND_SIGN));
     }
 }

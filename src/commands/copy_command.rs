@@ -1,49 +1,75 @@
-use std::{slice::Iter, iter::{Peekable, Zip}};
-use super::command_util::{ChunkError, FromBytesError, ToBytes, Command};
+use std::iter::Peekable;
+use std::slice::Iter;
 
-const COPY_COMMAND_SIGN: u8 = b'#';
+use super::commands_enum::{Command, CommandBytes, CommandError, PushToCommand};
+pub type CopyLength = u8;
 
 #[derive(Debug, PartialEq, Default)]
 pub struct CopyCommand {
-    chunk_length: u8,
+    length: CopyLength,
 }
 
 impl CopyCommand {
-    pub fn new(chunk_length: u8) -> Self {
-        Self { chunk_length }
+    pub fn new(length: CopyLength) -> Self {
+        Self { length }
     }
 
-    pub fn chunk_length(&self) -> u8 {
-        self.chunk_length
+    pub fn length(&self) -> CopyLength {
+        self.length
     }
+}
 
-    pub fn increment(&mut self) -> Result<(), ChunkError> {
-        if self.chunk_length == u8::MAX {
-            return Err(ChunkError::ChunkLengthOverFlow);
-        } 
-        self.chunk_length += 1;
+impl PushToCommand for CopyCommand {
+    fn push(&mut self, _: u8) -> Result<(), CommandError> {
+        self.length = self
+            .length
+            .checked_add(1)
+            .ok_or(CommandError::ByteLimitReached(CopyLength::MAX.into()))?;
         Ok(())
     }
 
-    pub fn increment_by(&mut self, amount: u8) -> Result<(), ChunkError> {
-        self.chunk_length = self.chunk_length.checked_add(amount).ok_or(ChunkError::ChunkLengthOverFlow)?;
+    fn push_chunk(&mut self, bytes: &[u8]) -> Result<(), CommandError>
+    where
+        Self: Sized,
+    {
+        self.length = self
+            .length
+            .checked_add(bytes.len() as u8)
+            .ok_or(CommandError::ByteLimitReached(CopyLength::MAX.into()))?;
         Ok(())
     }
 }
 
-impl ToBytes for CopyCommand {
-    
-    fn to_bytes(&self) -> Vec<u8> {
-        vec![COPY_COMMAND_SIGN, self.chunk_length]
+impl CommandBytes for CopyCommand {
+    const COMMAND_SIGN: u8 = b'#';
+    fn as_bytes(&self) -> Vec<u8> {
+        vec![Self::COMMAND_SIGN, self.length]
+    }
+
+    fn from_bytes(bytes: &mut Peekable<Iter<'_, u8>>) -> Result<Self, CommandError>
+    where
+        Self: Sized,
+    {
+        if !matches!(bytes.next(), Some(&Self::COMMAND_SIGN)) {
+            return Err(CommandError::ExpectedCommandSign(Self::COMMAND_SIGN));
+        };
+        Ok(Self::new(
+            *bytes.next().ok_or(CommandError::ExpectedCommandLength)?,
+        ))
     }
 }
 
-impl TryFrom<&mut Iter<'_, u8>> for CopyCommand {
-    type Error = FromBytesError;
+impl From<CopyCommand> for Vec<u8> {
+    fn from(value: CopyCommand) -> Self {
+        value.as_bytes()
+    }
+}
 
-    fn try_from(value: &mut Iter<'_, u8>) -> Result<Self, Self::Error> {
-        let chunk_length = value.next().ok_or(FromBytesError::ExpectedChunkLength)?;
-        Ok(Self::new(*chunk_length))
+impl TryFrom<&mut Peekable<Iter<'_, u8>>> for CopyCommand {
+    type Error = CommandError;
+
+    fn try_from(value: &mut Peekable<Iter<'_, u8>>) -> Result<Self, Self::Error> {
+        CopyCommand::from_bytes(value)
     }
 }
 
@@ -53,56 +79,49 @@ impl From<CopyCommand> for Command {
     }
 }
 
-impl From<&mut Peekable<Zip<&mut Iter<'_, u8>, &mut Iter<'_, u8>>>> for CopyCommand {
-    fn from(value: &mut Peekable<Zip<&mut Iter<'_, u8>, &mut Iter<'_, u8>>>) -> Self {
-        let mut copy = CopyCommand::default();
-        while let Some((_, _)) = value.next_if(|(source_byte, target_byte)| source_byte == target_byte){
-            if copy.increment().is_err(){
-                break;
-            }
-        }
-        copy
-    }
-} 
-
-
 #[cfg(test)]
 mod copy_command_tests {
-    use crate::commands::{command_util::{ToBytes, Command}, copy_command::COPY_COMMAND_SIGN};
-    use super::CopyCommand;
+    use super::*;
 
     #[test]
-    fn increment() {
-        let mut copy = CopyCommand::new(u8::MAX-1);
-        assert!(copy.increment().is_ok());
-        assert!(copy.increment().is_err());
-        assert_eq!(copy.chunk_length(), u8::MAX);
+    fn new() {
+        assert_eq!(CopyCommand::new(0).length(), 0);
+        assert_eq!(CopyCommand::default().length(), 0);
+        assert_eq!(CopyCommand::new(CopyLength::MAX).length(), CopyLength::MAX);
     }
 
     #[test]
-    fn increment_by() {
-        let mut copy = CopyCommand::new(u8::MAX-1);
-        assert!(copy.increment_by(1).is_ok());
-        assert!(copy.increment_by(1).is_err());
-        assert_eq!(copy.chunk_length(), u8::MAX);
+    fn push() {
+        let mut command = CopyCommand::new(CopyLength::MAX-1);
+        assert!(command.push(b'A').is_ok());
+        assert_eq!(command.length(), CopyLength::MAX);
+        assert!(command.push(b'A').is_err());
     }
 
     #[test]
-    fn try_from_iter_bytes() {
-        let bytes = CopyCommand::default().to_bytes();
-        let copy = CopyCommand::try_from(&mut bytes[1..].iter());
+    fn push_chunk() {
+        let mut command = CopyCommand::new(CopyLength::MAX-2);
+        assert!(command.push_chunk(b"AA").is_ok());
+        assert_eq!(command.length(), CopyLength::MAX);
+        assert!(command.push_chunk(b"AA").is_err());
+    }
+
+    #[test]
+    fn as_bytes() {
+        assert_eq!(CopyCommand::default().as_bytes(), vec![CopyCommand::COMMAND_SIGN, 0]);
+        assert_eq!(CopyCommand::new(CopyLength::MAX).as_bytes(), vec![CopyCommand::COMMAND_SIGN, CopyLength::MAX]);
+    }
+
+    #[test]
+    fn from_bytes() {
+        let bytes = vec![CopyCommand::COMMAND_SIGN, 0 as u8];
+        let copy = CopyCommand::try_from(&mut bytes.iter().peekable());
         assert!(copy.is_ok());
-        assert_eq!(copy.unwrap().to_bytes(), bytes);
-    }
+        assert_eq!(copy.unwrap(), CopyCommand::default());
 
-    #[test]
-    fn to_bytes() {
-        let copy = CopyCommand::default();
-        assert_eq!(copy.to_bytes(), vec![COPY_COMMAND_SIGN, 0]);
-    }
-
-    #[test]
-    fn from() {
-        let _: Command = CopyCommand::default().into();
+        let bytes = b"lol";
+        let copy = CopyCommand::try_from(&mut bytes.iter().peekable());
+        assert!(copy.is_err());
+        assert_eq!(copy.unwrap_err(), CommandError::ExpectedCommandSign(CopyCommand::COMMAND_SIGN));
     }
 }
