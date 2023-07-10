@@ -1,9 +1,10 @@
 use std::{slice::Iter, iter::Peekable};
 
-use super::copy_command::CopyCommand;
+use super::{copy_command::CopyCommand, add_command::AddCommand};
 
 pub enum Command {
     Copy(CopyCommand),
+    Add(AddCommand),
 }
 
 #[derive(Debug, PartialEq)]
@@ -11,6 +12,7 @@ pub enum CommandError {
     ByteLimitReached(u32),
     ExpectedCommandSign(u8),
     ExpectedCommandLength,
+    ExpectedChangeBytes,
 }
 
 
