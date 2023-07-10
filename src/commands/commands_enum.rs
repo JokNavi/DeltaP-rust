@@ -1,10 +1,11 @@
 use std::{slice::Iter, iter::Peekable};
 
-use super::{copy_command::CopyCommand, add_command::AddCommand};
+use super::{copy_command::CopyCommand, add_command::AddCommand, remove_command::RemoveCommand};
 
 pub enum Command {
     Copy(CopyCommand),
     Add(AddCommand),
+    Remove(RemoveCommand),
 }
 
 #[derive(Debug, PartialEq)]

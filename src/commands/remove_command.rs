@@ -5,11 +5,11 @@ use super::commands_enum::{Command, CommandBytes, CommandError, PushToCommand};
 pub type AddLength = u8;
 
 #[derive(Debug, PartialEq, Default)]
-pub struct AddCommand {
+pub struct RemoveCommand {
     new_bytes: Vec<u8>,
 }
 
-impl AddCommand {
+impl RemoveCommand {
     pub fn new(new_bytes: Vec<u8>) ->  Result<Self, CommandError> {
         if new_bytes.len() > AddLength::MAX.into() {
             return Err(CommandError::ByteLimitReached(AddLength::MAX.into()));
@@ -27,7 +27,7 @@ impl AddCommand {
     }
 }
 
-impl PushToCommand for AddCommand {
+impl PushToCommand for RemoveCommand {
     fn push(&mut self, byte: u8) -> Result<(), CommandError> {
         if self.new_bytes.len() + 1 > AddLength::MAX.into() {
             return Err(CommandError::ByteLimitReached(AddLength::MAX.into()));
@@ -48,8 +48,8 @@ impl PushToCommand for AddCommand {
     }
 }
 
-impl CommandBytes for AddCommand {
-    const COMMAND_SIGN: u8 = b'+';
+impl CommandBytes for RemoveCommand {
+    const COMMAND_SIGN: u8 = b'-';
 
     fn as_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![Self::COMMAND_SIGN];
@@ -67,7 +67,7 @@ impl CommandBytes for AddCommand {
             return Err(CommandError::ExpectedCommandSign(Self::COMMAND_SIGN));
         };
         let length = *bytes.next().ok_or(CommandError::ExpectedCommandLength)?;
-        let mut add = AddCommand::default();
+        let mut add = RemoveCommand::default();
         for _ in 0..length {
             add.push( *bytes.next().ok_or(CommandError::ExpectedChangeBytes)?)?;
         }
@@ -75,23 +75,23 @@ impl CommandBytes for AddCommand {
     }
 }
 
-impl From<AddCommand> for Vec<u8> {
-    fn from(value: AddCommand) -> Self {
+impl From<RemoveCommand> for Vec<u8> {
+    fn from(value: RemoveCommand) -> Self {
         value.as_bytes()
     }
 }
 
-impl TryFrom<&mut Peekable<Iter<'_, u8>>> for AddCommand {
+impl TryFrom<&mut Peekable<Iter<'_, u8>>> for RemoveCommand {
     type Error = CommandError;
 
     fn try_from(value: &mut Peekable<Iter<'_, u8>>) -> Result<Self, Self::Error> {
-        AddCommand::from_bytes(value)
+        RemoveCommand::from_bytes(value)
     }
 }
 
-impl From<AddCommand> for Command {
-    fn from(value: AddCommand) -> Self {
-        Command::Add(value)
+impl From<RemoveCommand> for Command {
+    fn from(value: RemoveCommand) -> Self {
+        Command::Remove(value)
     }
 }
 
@@ -101,57 +101,57 @@ mod copy_command_tests {
 
     #[test]
     fn new() {
-        let add = AddCommand::default();
-        assert_eq!(add.length(), 0);
-        assert_eq!(add.bytes(), b"");
+        let remove = RemoveCommand::default();
+        assert_eq!(remove.length(), 0);
+        assert_eq!(remove.bytes(), b"");
 
-        let add = AddCommand::new(b"AAA".to_vec()).unwrap();
-        assert_eq!(add.length(), 3);
-        assert_eq!(add.bytes(), b"AAA");
+        let remove = RemoveCommand::new(b"AAA".to_vec()).unwrap();
+        assert_eq!(remove.length(), 3);
+        assert_eq!(remove.bytes(), b"AAA");
 
-        let add = AddCommand::new(vec![0; AddLength::MAX as usize]).unwrap();
+        let add = RemoveCommand::new(vec![0; AddLength::MAX as usize]).unwrap();
         assert_eq!(add.length(), AddLength::MAX);
         assert_eq!(add.bytes(), vec![0; AddLength::MAX as usize]);
 
-        let add = AddCommand::new(vec![0; AddLength::MAX as usize + 1]);
-        assert!(add.is_err());
-        assert_eq!(add.unwrap_err(), CommandError::ByteLimitReached(AddLength::MAX.into()));
+        let remove = RemoveCommand::new(vec![0; AddLength::MAX as usize + 1]);
+        assert!(remove.is_err());
+        assert_eq!(remove.unwrap_err(), CommandError::ByteLimitReached(AddLength::MAX.into()));
     }
 
     #[test]
     fn push() {
-        let mut add = AddCommand::new(vec![0; AddLength::MAX as usize -1]).unwrap();
-        assert_eq!(add.length(), AddLength::MAX -1);
-        assert!(add.push(b'A').is_ok());
-        assert_eq!(add.length(), AddLength::MAX);
-        assert!(add.push(b'A').is_err());
+        let mut remove = RemoveCommand::new(vec![0; AddLength::MAX as usize -1]).unwrap();
+        assert_eq!(remove.length(), AddLength::MAX -1);
+        assert!(remove.push(b'A').is_ok());
+        assert_eq!(remove.length(), AddLength::MAX);
+        assert!(remove.push(b'A').is_err());
     }
 
     #[test]
     fn push_chunk() {
-        let mut add = AddCommand::new(vec![0; AddLength::MAX as usize -2]).unwrap();
-        assert_eq!(add.length(), AddLength::MAX -2);
-        assert!(add.push_chunk(b"AA").is_ok());
-        assert_eq!(add.length(), AddLength::MAX);
-        assert!(add.push_chunk(b"AA").is_err());
+        let mut remove = RemoveCommand::new(vec![0; AddLength::MAX as usize -2]).unwrap();
+        assert_eq!(remove.length(), AddLength::MAX -2);
+        assert!(remove.push_chunk(b"AA").is_ok());
+        assert_eq!(remove.length(), AddLength::MAX);
+        assert!(remove.push_chunk(b"AA").is_err());
     }
 
     #[test]
     fn as_bytes() {
-        assert_eq!(AddCommand::default().as_bytes(), vec![AddCommand::COMMAND_SIGN, 0]);
-        assert_eq!(AddCommand::new(b"AAA".to_vec()).unwrap().as_bytes(), vec![AddCommand::COMMAND_SIGN, 3, b'A', b'A', b'A']);
+        assert_eq!(RemoveCommand::default().as_bytes(), vec![RemoveCommand::COMMAND_SIGN, 0]);
+        assert_eq!(RemoveCommand::new(b"AAA".to_vec()).unwrap().as_bytes(), vec![RemoveCommand::COMMAND_SIGN, 3, b'A', b'A', b'A']);
     }
 
     #[test]
     fn from_bytes() {
-        let bytes = vec![AddCommand::COMMAND_SIGN, 0 as u8];
-        let add = AddCommand::try_from(&mut bytes.iter().peekable());
-        assert!(add.is_ok());
-        assert_eq!(add.unwrap(), AddCommand::default());
+        let bytes = vec![RemoveCommand::COMMAND_SIGN, 0 as u8];
+        let remove = RemoveCommand::try_from(&mut bytes.iter().peekable());
+        assert!(remove.is_ok());
+        assert_eq!(remove.unwrap(), RemoveCommand::default());
 
         let bytes = b"lol";
-        let add = AddCommand::try_from(&mut bytes.iter().peekable());
-        assert!(add.is_err());
-        assert_eq!(add.unwrap_err(), CommandError::ExpectedCommandSign(AddCommand::COMMAND_SIGN));
+        let remove = RemoveCommand::try_from(&mut bytes.iter().peekable());
+        assert!(remove.is_err());
+        assert_eq!(remove.unwrap_err(), CommandError::ExpectedCommandSign(RemoveCommand::COMMAND_SIGN));
     }
 }
