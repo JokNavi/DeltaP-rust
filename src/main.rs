@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod delta;
 use miniz_oxide::deflate::compress_to_vec;
 use miniz_oxide::inflate::decompress_to_vec_with_limit;
 
